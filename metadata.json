@@ -1,0 +1,6 @@
+{
+  "name": "NetTrace - Criminal Network Intelligence Platform",
+  "description": "AI-powered criminal network intelligence and investigation decision-support platform for multi-modal evidence correlation, network graph analysis, target prioritization, and disruption simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
