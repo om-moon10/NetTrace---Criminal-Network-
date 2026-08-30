@@ -159,6 +159,11 @@ router.get('/:id/graph', async (req, res) => {
   try {
     const db = await getDb();
     const id = req.params.id;
+    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: `Investigation ${id} not found` });
+    }
+
     const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [id]);
     const relationships = queryAll(db, 'SELECT * FROM relationships WHERE investigation_id = ?', [id]);
 
@@ -227,6 +232,11 @@ router.get('/:id/evidence', async (req, res) => {
   try {
     const db = await getDb();
     const id = req.params.id;
+    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: `Investigation ${id} not found` });
+    }
+
     const evidence = queryAll(db, 'SELECT * FROM evidence WHERE investigation_id = ? ORDER BY timestamp DESC', [id]);
     res.json({ evidence });
   } catch (error: any) {
@@ -239,6 +249,11 @@ router.get('/:id/timeline', async (req, res) => {
   try {
     const db = await getDb();
     const id = req.params.id;
+    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: `Investigation ${id} not found` });
+    }
+
     const timeline = queryAll(db, 'SELECT * FROM timeline_events WHERE investigation_id = ? ORDER BY timestamp ASC', [id]);
     
     const parsedTimeline = timeline.map((t) => ({
@@ -263,6 +278,11 @@ router.get('/:id/priorities', async (req, res) => {
   try {
     const db = await getDb();
     const id = req.params.id;
+    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: `Investigation ${id} not found` });
+    }
+
     const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [id]);
     const relationships = queryAll(db, 'SELECT * FROM relationships WHERE investigation_id = ?', [id]);
     const evidence = queryAll(db, 'SELECT * FROM evidence WHERE investigation_id = ?', [id]);
@@ -284,6 +304,11 @@ router.get('/:id/kingpin', async (req, res) => {
   try {
     const db = await getDb();
     const id = req.params.id;
+    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: `Investigation ${id} not found` });
+    }
+
     const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [id]);
     const relationships = queryAll(db, 'SELECT * FROM relationships WHERE investigation_id = ?', [id]);
     const evidence = queryAll(db, 'SELECT * FROM evidence WHERE investigation_id = ?', [id]);
@@ -326,6 +351,11 @@ router.get('/:id/timeline-analysis', async (req, res) => {
   try {
     const db = await getDb();
     const id = req.params.id;
+    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: `Investigation ${id} not found` });
+    }
+
     const windowParam = (req.query.window as string) || '24h';
 
     const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [id]);
@@ -345,6 +375,11 @@ router.get('/:id/hidden-relationships', async (req, res) => {
   try {
     const db = await getDb();
     const id = req.params.id;
+    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: `Investigation ${id} not found` });
+    }
+
     const source = req.query.source as string | undefined;
     const target = req.query.target as string | undefined;
     const maxHops = req.query.maxHops ? parseInt(req.query.maxHops as string, 10) : 6;

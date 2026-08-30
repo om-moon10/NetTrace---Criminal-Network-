@@ -52,7 +52,7 @@ export const PotentialKingpinView: React.FC<PotentialKingpinViewProps> = ({
   onSelectEntity,
 }) => {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; status?: number } | null>(null);
   const [data, setData] = useState<KingpinAnalysisResult | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [subView, setSubView] = useState<KingpinSubView>('overview');
@@ -77,7 +77,10 @@ export const PotentialKingpinView: React.FC<PotentialKingpinViewProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to load kingpin candidates:', err);
-      setError(err.message || 'Failed to calculate potential kingpin candidates');
+      setError({
+        message: err.message || 'Failed to calculate potential kingpin candidates',
+        status: err.status,
+      });
     } finally {
       setLoading(false);
     }
@@ -146,19 +149,43 @@ export const PotentialKingpinView: React.FC<PotentialKingpinViewProps> = ({
 
   // Render Error State
   if (error) {
+    const isNotFound = error.status === 404 || error.message.toLowerCase().includes('not found');
+    const isBadRequest = error.status === 400;
+    const isServerCalculationError = error.status === 500;
+    const isNetworkError = !error.status || error.message.toLowerCase().includes('unavailable') || error.message.toLowerCase().includes('failed to fetch');
+
+    let title = 'Kingpin Detection Calculation Error';
+    let subtitle = error.message;
+
+    if (isNotFound) {
+      title = 'Investigation Not Found';
+      subtitle = `Investigation "${investigationId}" was not found in the database. Please select a valid active investigation (e.g. NX-102 — Phantom Ledger) using the case switcher in the navigation bar.`;
+    } else if (isBadRequest) {
+      title = 'Invalid Investigation Parameters';
+      subtitle = error.message;
+    } else if (isServerCalculationError) {
+      title = 'Kingpin Engine Calculation Error';
+      subtitle = `The Kingpin heuristic calculation engine encountered an unexpected calculation error for investigation "${investigationId}": ${error.message}`;
+    } else if (isNetworkError) {
+      title = 'API Connection Error';
+      subtitle = `Unable to connect to NetTrace intelligence service. Please check network connectivity or backend status. (${error.message})`;
+    }
+
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 text-slate-100">
         <div className="bg-rose-950/40 border border-rose-800/80 rounded-xl p-6 flex flex-col items-center text-center space-y-3">
           <AlertTriangle className="w-10 h-10 text-rose-400" />
-          <h2 className="text-lg font-bold text-rose-200">Kingpin Detection Calculation Error</h2>
-          <p className="text-sm text-slate-300 max-w-lg">{error}</p>
-          <button
-            onClick={fetchKingpinData}
-            className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-all"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Retry Calculation</span>
-          </button>
+          <h2 className="text-lg font-bold text-rose-200">{title}</h2>
+          <p className="text-sm text-slate-300 max-w-lg">{subtitle}</p>
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={fetchKingpinData}
+              className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Retry Calculation</span>
+            </button>
+          </div>
         </div>
       </div>
     );

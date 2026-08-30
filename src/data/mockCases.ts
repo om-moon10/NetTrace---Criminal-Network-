@@ -2,21 +2,21 @@ import { InvestigationCase, TimelineEvent, IngestionLog } from '../types';
 import { calculateCentralities } from '../utils/graphEngine';
 
 const rawCase1: InvestigationCase = {
-  id: 'case-001',
-  caseNumber: 'CASE-2025-0894-CY',
-  title: 'Operation Lazarus Phantom - $42.8M Ransomware & Cross-Chain Tumbling Syndicate',
-  description: 'Multi-jurisdictional cyber extortion and money laundering syndicate deploying bespoke ransomware payloads against critical health and infrastructure sectors, routing proceeds through cross-chain liquidity bridges and nested mule accounts.',
+  id: 'NX-102',
+  caseNumber: 'NX-102',
+  title: 'Phantom Ledger',
+  description: 'Suspected coordinated cyber-financial network involving phishing infrastructure, multi-sig ransom vaults, CoinJoin tumblers, cross-chain liquidity bridges, and OTC fiat liquidation.',
   status: 'active',
-  leadInvestigator: 'Special Agent Sarah Sterling',
-  agency: 'Joint Cybercrime Action Taskforce (JCAT) / FBI Cyber Division',
+  leadInvestigator: 'Special Agent M. Vance',
+  agency: 'JCAT / Cyber Financial Task Force',
   classification: 'TLP:AMBER',
-  createdAt: '2025-01-14T08:30:00Z',
-  updatedAt: '2025-02-23T14:22:15Z',
+  createdAt: '2026-01-15T08:00:00Z',
+  updatedAt: '2026-03-01T14:30:00Z',
   totalMonitoredFundsUSD: 42850000,
   suspectsCount: 9,
   infrastructureCount: 7,
-  summary: 'Syndicate targets enterprise healthcare networks with dual-extortion ransomware. Ransom payments in BTC are immediately hop-mixed through CoinJoin tumblers, converted to Monero (XMR) and Tether TRC20, and liquidated through OTC brokers into UAE shell company real estate and banking conduits.',
-  tags: ['Ransomware', 'Cross-Chain', 'Tornado/Wasabi Tumbler', 'OTC Broker', 'Critical Infrastructure', 'Sanctions Evasion'],
+  summary: 'Suspected coordinated cyber-financial network involving phishing infrastructure, multi-sig ransom vaults, CoinJoin tumblers, cross-chain liquidity bridges, and OTC fiat liquidation.',
+  tags: ['Cyber-Financial', 'Phantom Ledger', 'Crypto-Intelligence', 'Wasabi Mixer'],
   nodes: [
     {
       id: 'ent-01',
