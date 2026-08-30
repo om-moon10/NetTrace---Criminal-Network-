@@ -22,6 +22,7 @@ interface TargetPrioritizationViewProps {
   onSelectNode: (node: Entity) => void;
   onSimulateBatchRemoval: (nodeIds: string[]) => void;
   onGenerateAffidavit: (nodeId: string) => void;
+  onNavigateToKingpin?: () => void;
 }
 
 export const TargetPrioritizationView: React.FC<TargetPrioritizationViewProps> = ({
@@ -29,6 +30,7 @@ export const TargetPrioritizationView: React.FC<TargetPrioritizationViewProps> =
   onSelectNode,
   onSimulateBatchRemoval,
   onGenerateAffidavit,
+  onNavigateToKingpin,
 }) => {
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -124,21 +126,33 @@ export const TargetPrioritizationView: React.FC<TargetPrioritizationViewProps> =
           </p>
         </div>
 
-        {/* Batch Action Bar */}
-        {selectedNodeIds.size > 0 && (
-          <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-cyan-500/40 animate-fade-in">
-            <span className="text-xs font-mono text-cyan-300 font-semibold">
-              {selectedNodeIds.size} Targets Selected
-            </span>
+        {/* Batch Action Bar / Kingpin Lead Nav */}
+        <div className="flex items-center space-x-2">
+          {onNavigateToKingpin && (
             <button
-              onClick={() => onSimulateBatchRemoval(Array.from(selectedNodeIds))}
-              className="flex items-center space-x-1 px-3 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all shadow-md"
+              onClick={onNavigateToKingpin}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900/90 text-rose-300 border border-rose-800 text-xs font-semibold transition-all shadow-sm"
             >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Simulate Joint Seizure</span>
+              <Crown className="w-3.5 h-3.5 text-rose-400" />
+              <span>Potential Kingpin Detection Lead</span>
             </button>
-          </div>
-        )}
+          )}
+
+          {selectedNodeIds.size > 0 && (
+            <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-cyan-500/40 animate-fade-in">
+              <span className="text-xs font-mono text-cyan-300 font-semibold">
+                {selectedNodeIds.size} Targets Selected
+              </span>
+              <button
+                onClick={() => onSimulateBatchRemoval(Array.from(selectedNodeIds))}
+                className="flex items-center space-x-1 px-3 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all shadow-md"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Simulate Joint Seizure</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards Grid */}

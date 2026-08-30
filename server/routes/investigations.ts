@@ -4,6 +4,9 @@ import { analyzeGraph } from '../services/graphEngine';
 import { calculateNetworkRisk } from '../services/riskEngine';
 import { rankInvestigationPriorities } from '../services/priorityEngine';
 import { inferPotentialRoles } from '../services/roleEngine';
+import { calculateKingpinCandidates } from '../services/kingpinEngine';
+import { analyzeTimeline } from '../services/timelineAnalysisEngine';
+import { analyzeInvestigationHiddenRelationships } from '../services/hiddenRelationshipEngine';
 
 const router = Router();
 
@@ -273,6 +276,124 @@ router.get('/:id/priorities', async (req, res) => {
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/investigations/:id/kingpin
+router.get('/:id/kingpin', async (req, res) => {
+  try {
+    const db = await getDb();
+    const id = req.params.id;
+    const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [id]);
+    const relationships = queryAll(db, 'SELECT * FROM relationships WHERE investigation_id = ?', [id]);
+    const evidence = queryAll(db, 'SELECT * FROM evidence WHERE investigation_id = ?', [id]);
+    const timeline = queryAll(db, 'SELECT * FROM timeline_events WHERE investigation_id = ?', [id]);
+
+    const parsedNodes = entities.map((e) => ({
+      id: e.id,
+      label: e.label,
+      name: e.name,
+      type: e.type,
+      threat_level: e.threat_level,
+      role: e.role,
+      risk_score: e.risk_score,
+      confidence_score: e.confidence_score,
+      cluster_id: e.cluster_id,
+      metadata: typeof e.metadata === 'string' ? JSON.parse(e.metadata || '{}') : e.metadata,
+    }));
+
+    const parsedEdges = relationships.map((r) => ({
+      id: r.id,
+      source: r.source,
+      target: r.target,
+      type: r.type,
+      label: r.label,
+      value: r.value,
+      confidence: r.confidence,
+    }));
+
+    const result = calculateKingpinCandidates(id, parsedNodes, parsedEdges, evidence, timeline);
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Kingpin calculation error:', error);
+    res.status(500).json({ error: error.message || 'Failed to calculate potential kingpin candidates' });
+  }
+});
+
+// GET /api/investigations/:id/timeline-analysis
+router.get('/:id/timeline-analysis', async (req, res) => {
+  try {
+    const db = await getDb();
+    const id = req.params.id;
+    const windowParam = (req.query.window as string) || '24h';
+
+    const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [id]);
+    const evidence = queryAll(db, 'SELECT * FROM evidence WHERE investigation_id = ?', [id]);
+    const timeline = queryAll(db, 'SELECT * FROM timeline_events WHERE investigation_id = ? ORDER BY timestamp ASC', [id]);
+
+    const result = analyzeTimeline(id, timeline, entities, evidence, windowParam);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Timeline analysis calculation error:', error);
+    res.status(500).json({ error: error.message || 'Failed to perform timeline analysis' });
+  }
+});
+
+// GET /api/investigations/:id/hidden-relationships
+router.get('/:id/hidden-relationships', async (req, res) => {
+  try {
+    const db = await getDb();
+    const id = req.params.id;
+    const source = req.query.source as string | undefined;
+    const target = req.query.target as string | undefined;
+    const maxHops = req.query.maxHops ? parseInt(req.query.maxHops as string, 10) : 6;
+
+    const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [id]);
+    const relationships = queryAll(db, 'SELECT * FROM relationships WHERE investigation_id = ?', [id]);
+    const evidence = queryAll(db, 'SELECT * FROM evidence WHERE investigation_id = ?', [id]);
+    const timeline = queryAll(db, 'SELECT * FROM timeline_events WHERE investigation_id = ?', [id]);
+
+    const parsedNodes = entities.map((e) => ({
+      id: e.id,
+      label: e.label,
+      name: e.name,
+      type: e.type,
+      threat_level: e.threat_level,
+      role: e.role,
+      risk_score: e.risk_score,
+      confidence_score: e.confidence_score,
+      cluster_id: e.cluster_id,
+      metadata: typeof e.metadata === 'string' ? JSON.parse(e.metadata || '{}') : e.metadata,
+    }));
+
+    const parsedEdges = relationships.map((r) => ({
+      id: r.id,
+      source: r.source,
+      target: r.target,
+      type: r.type,
+      label: r.label,
+      value: r.value,
+      confidence: r.confidence,
+      protocol: r.protocol,
+      timestamp: r.timestamp,
+    }));
+
+    const result = analyzeInvestigationHiddenRelationships(
+      id,
+      parsedNodes,
+      parsedEdges,
+      evidence,
+      timeline,
+      source,
+      target,
+      Math.min(6, Math.max(2, maxHops))
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Hidden relationship calculation error:', error);
+    res.status(500).json({ error: error.message || 'Failed to analyze hidden relationships' });
   }
 });
 

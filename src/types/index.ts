@@ -233,3 +233,310 @@ export interface IntelligenceBrief {
   }[];
   confidenceScore: number;
 }
+
+export interface KingpinFactorScore {
+  name: string;
+  score: number;
+  weight: number;
+  weightedScore: number;
+  description: string;
+}
+
+export interface SupportingEvidenceVector {
+  vector: string;
+  strength: 'VERY HIGH' | 'HIGH' | 'MEDIUM' | 'LOW';
+  confidenceMetric: number;
+  details: string;
+}
+
+export interface KingpinCandidate {
+  rank: number;
+  entityId: string;
+  entityName: string;
+  entityLabel: string;
+  entityType: string;
+  threatLevel: string;
+  role: string;
+  kingpinScore: number;
+  confidence: number;
+  riskScore: number;
+  statusTag: string;
+  factors: {
+    betweennessCentrality: number;
+    crossClusterInfluence: number;
+    transactionInfluence: number;
+    degreeCentrality: number;
+    investigativeRisk: number;
+    evidenceStrength: number;
+    infrastructureInfluence: number;
+    closenessCentrality?: number;
+  };
+  factorBreakdown: KingpinFactorScore[];
+  supportingIndicators: string[];
+  primaryReasons: string[];
+  supportingEvidence: SupportingEvidenceVector[];
+  impactPreview: {
+    currentConnections: number;
+    affectedClusters: number;
+    potentiallyIsolatedNodes: number;
+    criticalPaths: number;
+    potentiallyDisruptedRelationships: number;
+    estimatedNetworkImpact: 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
+  };
+  connectedNeighbors: Array<{
+    id: string;
+    name: string;
+    label: string;
+    type: string;
+    relationshipType: string;
+  }>;
+  metadata?: any;
+}
+
+export interface KingpinAnalysisResult {
+  investigationId: string;
+  candidates: KingpinCandidate[];
+  topCandidate?: KingpinCandidate;
+  totalEntitiesAnalyzed: number;
+  disclaimer: string;
+  emptyState?: boolean;
+  emptyMessage?: string;
+}
+
+export interface NormalizedTimelineEvent {
+  id: string;
+  timestamp: string;
+  title: string;
+  description: string;
+  category: string;
+  normalizedCategory: 'THREAT INTELLIGENCE' | 'INFRASTRUCTURE' | 'BLOCKCHAIN' | 'TRANSACTION' | 'EXCHANGE' | 'EVIDENCE' | 'INVESTIGATION';
+  severity: 'critical' | 'high' | 'medium' | 'info';
+  amountUSD?: number;
+  entityIds: string[];
+  entities: Array<{
+    id: string;
+    label: string;
+    name: string;
+    type: string;
+    role?: string;
+  }>;
+  verificationStatus: 'VERIFIED' | 'PENDING' | 'FLAGGED';
+  isCorrelated: boolean;
+  correlationIds: string[];
+  sequenceIds: string[];
+  evidenceCount: number;
+}
+
+export interface TemporalCluster {
+  id: string;
+  title: string;
+  label: 'Potentially Coordinated Activity' | 'Potential Correlation';
+  eventCount: number;
+  eventIds: string[];
+  events: NormalizedTimelineEvent[];
+  entitiesInvolved: string[];
+  entityDetails: Array<{
+    id: string;
+    label: string;
+    name: string;
+    type: string;
+  }>;
+  eventTypes: string[];
+  startTime: string;
+  endTime: string;
+  durationMs: number;
+  durationFormatted: string;
+  durationMinutes: number;
+  correlationStrength: number;
+  confidence: number;
+  automatedProbability: 'HIGH' | 'MEDIUM' | 'LOW';
+  alertMessage: string;
+  description: string;
+}
+
+export interface SequenceStep {
+  stepNumber: number;
+  eventId: string;
+  title: string;
+  category: string;
+  normalizedCategory: string;
+  timestamp: string;
+  entityId?: string;
+  entityLabel?: string;
+  amountUSD?: number;
+  detail: string;
+}
+
+export interface InferredSequence {
+  id: string;
+  name: string;
+  description: string;
+  stepCount: number;
+  eventIds: string[];
+  steps: SequenceStep[];
+  correlationStrength: number;
+  confidence: number;
+  startTime: string;
+  endTime: string;
+  durationFormatted: string;
+}
+
+export interface CategoryBreakdown {
+  category: string;
+  count: number;
+  percentage: number;
+  eventIds: string[];
+}
+
+export interface TimelineAnalysisResult {
+  investigationId: string;
+  totalEvents: number;
+  timeSpan: {
+    start: string | null;
+    end: string | null;
+    durationMs: number;
+    durationDays: number;
+    formatted: string;
+  };
+  correlatedEvents: number;
+  potentialSequences: number;
+  selectedWindow: string;
+  windowDurationFormatted: string;
+  correlations: TemporalCluster[];
+  activeCorrelation?: TemporalCluster;
+  sequences: InferredSequence[];
+  activeSequence?: InferredSequence;
+  eventBreakdown: CategoryBreakdown[];
+  events: NormalizedTimelineEvent[];
+  insights: string;
+  disclaimer: string;
+  emptyState?: boolean;
+  emptyMessage?: string;
+}
+
+export interface HiddenPathNode {
+  id: string;
+  label: string;
+  name: string;
+  type: string;
+  role: string;
+  threatLevel: string;
+  riskScore: number;
+  confidenceScore: number;
+  clusterId?: string;
+  domain: 'cyber' | 'financial' | 'identity' | 'infrastructure' | 'unknown';
+}
+
+export interface HiddenPathEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  label?: string;
+  value?: number;
+  confidence: number;
+  protocol?: string;
+  timestamp?: string;
+}
+
+export interface PathIndicator {
+  name: string;
+  level: 'HIGH' | 'MEDIUM' | 'LOW';
+  description: string;
+}
+
+export interface HiddenPathResult {
+  id: string;
+  pathIndex: number;
+  name: string;
+  tag: string;
+  hops: number;
+  strength: number;
+  confidence: number;
+  totalFlowUSD: number;
+  nodeIds: string[];
+  edgeIds: string[];
+  nodes: HiddenPathNode[];
+  edges: HiddenPathEdge[];
+  domainTransitions: number;
+  domainsTraversed: string[];
+  isCrossDomain: boolean;
+  explanation: string;
+  indicators: {
+    evidenceSupported: PathIndicator;
+    temporalProximity: PathIndicator;
+    sharedInfrastructure: PathIndicator;
+    crossDomainBridging: PathIndicator;
+  };
+  evidenceCount: number;
+  evidenceIds: string[];
+  timelineCorrelationScore: number;
+}
+
+export interface HiddenRelationshipAnalysisResult {
+  investigationId: string;
+  summary: {
+    totalHiddenRelationships: number;
+    highRelevancePaths: number;
+    entitiesAnalyzed: number;
+    averagePathLength: number;
+  };
+  sourceEntity?: HiddenPathNode;
+  targetEntity?: HiddenPathNode;
+  isDirectlyConnected: boolean;
+  directRelationshipCount: number;
+  paths: HiddenPathResult[];
+  recommendedPairs?: Array<{
+    sourceId: string;
+    sourceName: string;
+    sourceType: string;
+    targetId: string;
+    targetName: string;
+    targetType: string;
+    estimatedStrength: number;
+    hops: number;
+    reason: string;
+  }>;
+  disclaimer: string;
+}
+
+export interface CopilotAction {
+  label: string;
+  view: string;
+  entityId?: string;
+  pathNodeIds?: string[];
+}
+
+export interface CopilotReferencedEntity {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  role: string;
+  riskScore: number;
+}
+
+export interface CopilotMessage {
+  id: string;
+  sender: 'user' | 'copilot';
+  text: string;
+  time: string;
+  suggestedQuestions?: string[];
+  suggestedActions?: CopilotAction[];
+  referencedEntities?: CopilotReferencedEntity[];
+  confidenceScore?: number;
+  generatedBy?: string;
+  disclaimer?: string;
+}
+
+export interface CopilotResponse {
+  reply: string;
+  suggestedQuestions: string[];
+  suggestedActions: CopilotAction[];
+  referencedEntities: CopilotReferencedEntity[];
+  confidenceScore: number;
+  generatedBy: string;
+  disclaimer: string;
+}
+
+

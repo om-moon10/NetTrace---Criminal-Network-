@@ -4,17 +4,19 @@ import { simulateNetworkDisruption } from '../services/simulationEngine';
 
 const router = Router();
 
-// POST /api/simulation
-router.post('/', async (req, res) => {
+// POST /api/simulation and POST /api/simulation/run
+const handleSimulation = async (req: any, res: any) => {
   try {
     const db = await getDb();
-    const { investigationId = 'NX-102', entityId, entityIds, removedNodeIds } = req.body;
+    const { investigationId = 'NX-102', entityId, entityIds, removedNodeIds, removedEntityIds } = req.body;
 
     const targets: string[] = [];
     if (Array.isArray(entityIds)) {
       targets.push(...entityIds);
     } else if (Array.isArray(removedNodeIds)) {
       targets.push(...removedNodeIds);
+    } else if (Array.isArray(removedEntityIds)) {
+      targets.push(...removedEntityIds);
     } else if (entityId) {
       targets.push(entityId);
     }
@@ -38,6 +40,7 @@ router.post('/', async (req, res) => {
       before: result.before,
       after: result.after,
       difference: result.difference,
+      delta: result.difference,
       disruption_level: result.disruption_level,
       explanation: result.explanation,
     });
@@ -45,6 +48,9 @@ router.post('/', async (req, res) => {
     console.error('Simulation error:', error);
     res.status(500).json({ error: error.message || 'Simulation execution failed' });
   }
-});
+};
+
+router.post('/', handleSimulation);
+router.post('/run', handleSimulation);
 
 export default router;

@@ -9,15 +9,19 @@ import {
   FileText,
   ChevronDown,
   Menu,
-  Layers
+  Layers,
+  Crown,
+  Route
 } from 'lucide-react';
 
 export type TabView = 
   | 'graph'
+  | 'kingpin'
   | 'prioritization'
   | 'simulation'
   | 'ingestion'
   | 'timeline'
+  | 'hidden_relationships'
   | 'ai_briefing'
   | 'case_dossier';
 
@@ -50,6 +54,16 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
       badge: nodesCount.toString(),
       badgeColor: 'bg-cyan-950 text-cyan-300 border border-cyan-800',
       description: 'Interactive Multi-Modal Topology & Centrality',
+      isPrimaryTablet: true,
+    },
+    {
+      id: 'kingpin' as TabView,
+      label: 'Kingpin Lead',
+      fullLabel: 'Potential Kingpin Detection',
+      icon: Crown,
+      badge: 'Lead',
+      badgeColor: 'bg-rose-950 text-rose-300 border border-rose-800',
+      description: 'Strategic Network Influence & Control Node Lead',
       isPrimaryTablet: true,
     },
     {
@@ -88,6 +102,16 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
       fullLabel: 'Timeline & Money Flow',
       icon: History,
       description: 'Chronological Telemetry Scrubber',
+      isPrimaryTablet: false,
+    },
+    {
+      id: 'hidden_relationships' as TabView,
+      label: 'Hidden Paths',
+      fullLabel: 'Hidden Relationship Detection',
+      icon: Route,
+      badge: '6-Hop',
+      badgeColor: 'bg-cyan-950 text-cyan-300 border border-cyan-700',
+      description: 'Indirect Multi-Hop Obfuscation Analysis',
       isPrimaryTablet: false,
     },
     {

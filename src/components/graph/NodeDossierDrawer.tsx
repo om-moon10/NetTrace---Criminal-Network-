@@ -26,6 +26,7 @@ interface NodeDossierDrawerProps {
   onClose: () => void;
   onSimulateRemoval: (entityId: string) => void;
   onFindPathFromNode: (entityId: string) => void;
+  onDetectHiddenRelationships?: (entityId: string) => void;
   onGenerateAffidavit: (entityId: string) => void;
   onAskCopilot: (entity: Entity) => void;
   onUpdateStatus: (entityId: string, status: EntityStatus) => void;
@@ -38,6 +39,7 @@ export const NodeDossierDrawer: React.FC<NodeDossierDrawerProps> = ({
   onClose,
   onSimulateRemoval,
   onFindPathFromNode,
+  onDetectHiddenRelationships,
   onGenerateAffidavit,
   onAskCopilot,
   onUpdateStatus,
@@ -348,13 +350,16 @@ export const NodeDossierDrawer: React.FC<NodeDossierDrawerProps> = ({
             <span>Simulate Seizure</span>
           </button>
 
-          {/* Trace Conduit */}
+          {/* Trace Conduit / Hidden Relationships */}
           <button
-            onClick={() => onFindPathFromNode(entity.id)}
+            onClick={() => {
+              if (onDetectHiddenRelationships) onDetectHiddenRelationships(entity.id);
+              else onFindPathFromNode(entity.id);
+            }}
             className="flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg bg-cyan-950/70 hover:bg-cyan-900/90 border border-cyan-600/60 text-cyan-300 text-xs font-semibold transition-all"
           >
             <Route className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Trace Flow</span>
+            <span>Hidden Paths</span>
           </button>
         </div>
 

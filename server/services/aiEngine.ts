@@ -390,58 +390,226 @@ Respond in JSON matching schema:
   }
 }
 
+export interface CopilotResponseResult {
+  reply: string;
+  suggestedQuestions: string[];
+  suggestedActions: Array<{
+    label: string;
+    view: string;
+    entityId?: string;
+    pathNodeIds?: string[];
+  }>;
+  referencedEntities: Array<{
+    id: string;
+    name: string;
+    label: string;
+    type: string;
+    role: string;
+    riskScore: number;
+  }>;
+  confidenceScore: number;
+  generatedBy: string;
+  disclaimer: string;
+}
+
 export async function generateCopilotResponse(
-  investigation: any,
-  entities: any[],
-  relationships: any[],
-  userQuery: string
-): Promise<{ reply: string }> {
+  context: any,
+  userQuery: string,
+  messageHistory: Array<{ sender: string; text: string }> = []
+): Promise<CopilotResponseResult> {
   const ai = getAI();
+  const disclaimer = 'AI-generated analysis is based on available investigation data and should be independently verified.';
+
+  const invName = context?.investigation?.name || 'Syndicate Investigation';
+  const entities = context?.entities || [];
+  const topTargets = context?.topTargets || [];
+  const bridgeNodes = context?.bridgeNodes || [];
+
+  // Match referenced entities in query or context
+  const referencedEntities: any[] = [];
+  const qLower = userQuery.toLowerCase();
+  entities.forEach((ent: any) => {
+    if (
+      qLower.includes(ent.name.toLowerCase()) ||
+      qLower.includes(ent.label.toLowerCase()) ||
+      (ent.role && qLower.includes(ent.role.toLowerCase()))
+    ) {
+      if (!referencedEntities.some((r) => r.id === ent.id)) {
+        referencedEntities.push({
+          id: ent.id,
+          name: ent.name,
+          label: ent.label,
+          type: ent.type,
+          role: ent.role,
+          riskScore: ent.riskScore,
+        });
+      }
+    }
+  });
+
+  if (referencedEntities.length === 0 && topTargets.length > 0) {
+    topTargets.slice(0, 2).forEach((t: any) => {
+      referencedEntities.push({
+        id: t.entityId,
+        name: t.entityName,
+        label: t.entityLabel,
+        type: t.entityType,
+        role: t.primaryRole,
+        riskScore: t.riskScore,
+      });
+    });
+  }
+
+  // Default suggested actions & followups
+  const defaultActions = [
+    { label: 'View Network Graph Explorer', view: 'graph' },
+    { label: 'Inspect Kingpin Lead Node', view: 'kingpin', entityId: topTargets[0]?.entityId },
+    { label: 'Analyze Hidden Multi-Hop Paths', view: 'hidden_relationships' },
+    { label: 'Run Disruption Simulation', view: 'simulation' },
+  ];
+
+  const defaultQuestions = [
+    'Who are the primary bridge and conduit nodes?',
+    'Trace the high-velocity cryptocurrency laundering trail',
+    'Which search warrants or subpoenas are highest priority?',
+    'What hidden connections link cyber entry points to financial vaults?',
+  ];
 
   if (!ai) {
-    const q = userQuery.toLowerCase();
-    if (q.includes('volkov') || q.includes('kingpin') || q.includes('who')) {
-      return {
-        reply: `**Subject Dmitri Volkov (Alias: "CipherKing")** is the primary suspect and architect of the syndicate. Forensics tie his MacBook device to the root SSH key for the Moldovan C2 server (185.220.101.5) and the 2-of-3 multi-sig key controlling the **$31.2M Syndicate Master Vault (bc1qa5kx...)**.`,
-      };
+    let reply = '';
+    const suggestedActions = [...defaultActions];
+    const suggestedQuestions = [...defaultQuestions];
+
+    if (qLower.includes('volkov') || qLower.includes('kingpin') || qLower.includes('who') || qLower.includes('leader')) {
+      reply = `### Subject Intelligence: Dmitri Volkov (Alias: "CipherKing")\n\n` +
+        `- **Investigative Assessment:** Primary target and architectural orchestrator of the **${invName}** syndicate.\n` +
+        `- **Attribution Vector:** Digital forensics linked Volkov's personal hardware keystore to the root administrative SSH keys controlling the Moldovan C2 cluster (\`185.220.101.5\`).\n` +
+        `- **Financial Control:** Controls 2-of-3 multi-signature authorization over the **$31.2M Syndicate Master Vault (\`bc1qa5kx...\`)**.\n` +
+        `- **Recommended Action:** Execute Interpol Red Notice coordination and serve expedited preservation order on associated Estonian telecom and hardware identities.`;
+      suggestedActions.unshift({ label: 'Open Volkov Dossier & Affidavits', view: 'graph', entityId: 'ENT-101' });
+    } else if (
+      qLower.includes('money') ||
+      qLower.includes('fund') ||
+      qLower.includes('launder') ||
+      qLower.includes('flow') ||
+      qLower.includes('blockchain') ||
+      qLower.includes('crypto')
+    ) {
+      reply = `### Cryptocurrency Flow & Laundering Path Breakdown\n\n` +
+        `1. **Extortion Ingestion ($11.0M+ USD):** Inflows from victim extortion tranches routed to primary aggregation addresses.\n` +
+        `2. **Anonymization / Tumbling:** $16.8M processed through Wasabi CoinJoin Whirlpool pool (\`TX-1043\`) to obscure UTXO provenance.\n` +
+        `3. **Cross-Chain Bridge Conduit:** $12.5M bridged across Ethereum WBTC and converted into Tether TRC-20 (\`TX-1044 / TX-1045\`).\n` +
+        `4. **Off-Ramp & Commercial Shells:** $9.6M swept through OTC facilitator *Vortex Liquidity* into *Aegis Horizon Global FZE* bank accounts in Dubai.\n\n` +
+        `**Key Vulnerability:** Freezing the cross-chain liquidity bridge will trap up to $12.5M in active flight.`;
+      suggestedActions.unshift({ label: 'Trace Hidden Laundering Paths', view: 'hidden_relationships' });
+    } else if (
+      qLower.includes('hidden') ||
+      qLower.includes('indirect') ||
+      qLower.includes('path') ||
+      qLower.includes('connection')
+    ) {
+      reply = `### Hidden & Multi-Hop Relationship Analysis\n\n` +
+        `- **Key Discovery:** Identified an unindexed 4-hop conduit connecting perimeter cyber asset (\`x-auth-gateway.org\`) to the high-risk financial treasury.\n` +
+        `- **Conduit Nodes:** Traverses command bridge \`185.220.101.5\` and facilitator entity *Elena Rostova* before settling in Dubai corporate accounts.\n` +
+        `- **Investigative Value:** Bypasses conventional direct-link detection by interleaving cyber infrastructure hops with OTC liquidity providers.\n` +
+        `- **Corroborating Evidence:** Correlated by ${context?.summary?.totalEvidence || 6} seized server logs and transaction metadata.`;
+      suggestedActions.unshift({ label: 'Open Hidden Relationship Detection', view: 'hidden_relationships' });
+    } else if (
+      qLower.includes('disrupt') ||
+      qLower.includes('seize') ||
+      qLower.includes('takedown') ||
+      qLower.includes('action') ||
+      qLower.includes('simulate')
+    ) {
+      reply = `### Disruption & Interdiction Phasing Roadmap\n\n` +
+        `1. **Phase 1 (Simultaneous Asset Freeze):** Interdict **Syndicate Master Vault** and **Liquidity Bridge** to immobilize 78% of network liquidity.\n` +
+        `2. **Phase 2 (Infrastructure Neutralization):** Issue judicial seizure of Moldovan C2 Host (\`185.220.101.5\`) to sever remote worker telemetry.\n` +
+        `3. **Phase 3 (Legal & MLAT Freezes):** Serve FIU MLAT warrant on Aegis Horizon Global FZE accounts at Emirates NBD to impound $11.8M in real estate escrow.\n\n` +
+        `**Simulation Result:** Counterfactual node removal reduces total syndicate connectivity by 68%.`;
+      suggestedActions.unshift({ label: 'Test Scenario in Disruption Simulator', view: 'simulation' });
+    } else {
+      reply = `### Investigation Overview: ${invName} (${context?.investigation?.caseNumber || 'NX-102'})\n\n` +
+        `- **Tracked Scope:** ${context?.summary?.totalEntities || entities.length} verified entities, ${context?.summary?.totalRelationships || 0} relational links, and $${((context?.investigation?.totalMonitoredFundsUSD || 42800000) / 1000000).toFixed(1)}M in monitored financial velocity.\n` +
+        `- **Network Risk Level:** **${context?.summary?.networkRiskScore || 88}/100 (${context?.summary?.networkRiskLevel || 'CRITICAL'})**.\n` +
+        `- **Top Command Targets:** ${topTargets.map((t: any) => `**${t.entityName}** (${t.primaryRole})`).join(', ')}.\n` +
+        `- **Key Bridge Conduits:** ${bridgeNodes.map((b: any) => `\`${b.name}\``).join(', ')}.\n\n` +
+        `What specific target, financial conduit, or legal warrant package would you like to investigate further?`;
     }
-    if (q.includes('money') || q.includes('fund') || q.includes('launder') || q.includes('flow') || q.includes('blockchain')) {
-      return {
-        reply: `**Cryptocurrency Flow & Laundering Path:**\n1. **Extortion Inflow:** $11.0M+ in BTC paid by healthcare and energy victims.\n2. **Tumbling:** $16.8M routed through Wasabi CoinJoin Whirlpool pool (TX-1043).\n3. **Cross-Chain Bridge:** $12.5M converted into WBTC on Ethereum and minted to TRON USDT (TX-1044 / TX-1045).\n4. **Offramp:** $9.6M swept through OTC broker *Vortex Liquidity* into *Aegis Horizon Global FZE* commercial bank accounts in Dubai.`,
-      };
-    }
-    if (q.includes('disrupt') || q.includes('seize') || q.includes('takedown') || q.includes('action')) {
-      return {
-        reply: `**Top Tactical Recommendations:**\n- **Target 1 (Liquidity Bridge & Vault):** Simultaneous asset freeze disrupts 78% of active laundering velocity.\n- **Target 2 (Aegis Horizon Dubai Account):** Subpoena Emirates NBD to freeze $11.8M in real estate escrow funds.\n- **Target 3 (C2 Host 185.220.101.5):** International MLAT takedown with Moldovan authorities.`,
-      };
-    }
+
     return {
-      reply: `Analysis for query "${userQuery}": Based on the ${entities.length} entities and ${relationships.length} relationships in ${investigation.name}, the syndicate demonstrates high structural centralization around Dmitri Volkov (Command), Elena Rostova (Dubai Escrow), and the Cross-Chain Liquidity Bridge. Let me know if you would like me to draft an affidavit or map out specific transaction hops.`,
+      reply,
+      suggestedQuestions,
+      suggestedActions,
+      referencedEntities,
+      confidenceScore: 95,
+      generatedBy: 'NetTrace Intelligence Engine (Deterministic Rule-Based System)',
+      disclaimer,
     };
   }
 
   try {
-    const prompt = `You are NetTrace AI Copilot, a specialized legal and forensic cybercrime assistant.
-Case Name: ${investigation.name} (${investigation.case_number})
-Entities tracked: ${entities.length}
-Relationships: ${relationships.length}
+    const compactContext = {
+      investigation: context.investigation,
+      summary: context.summary,
+      topTargets: context.topTargets,
+      bridgeNodes: context.bridgeNodes,
+      selectedEntity: context.selectedEntityContext,
+      recentTimeline: context.timelineHighlights?.slice(0, 4),
+      recentEvidence: context.evidenceHighlights?.slice(0, 4),
+      userCurrentQuery: userQuery,
+    };
+
+    const prompt = `You are NetTrace AI Copilot, a senior cybercrime and financial intelligence legal assistant.
+You are assisting sworn investigators, prosecutors, and intelligence analysts.
+
+Investigation Context:
+${JSON.stringify(compactContext, null, 2)}
 
 User Query: "${userQuery}"
 
-Provide a direct, authoritative, law-enforcement grade response with bold terms and clear bullet points where appropriate.`;
+Provide a thorough, authoritative, law-enforcement grade intelligence response.
+Always format your output in clean Markdown with bold identifiers, bulleted takeaways, and clear citations of entities and technical indicators.
+
+Respond in JSON format with schema:
+{
+  "reply": "Comprehensive Markdown formatted intelligence answer",
+  "suggestedQuestions": ["3 relevant follow-up questions specific to this case"],
+  "suggestedActions": [
+    { "label": "Action button text", "view": "graph|kingpin|prioritization|simulation|hidden_relationships|ingestion|timeline", "entityId": "optional entity ID" }
+  ],
+  "confidenceScore": 95
+}`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.7-flash',
       contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+      },
     });
 
+    const parsed = JSON.parse(response.text || '{}');
+
     return {
-      reply: response.text || 'Analysis completed.',
+      reply: parsed.reply || response.text || 'Analysis completed.',
+      suggestedQuestions: parsed.suggestedQuestions && parsed.suggestedQuestions.length > 0 ? parsed.suggestedQuestions : defaultQuestions,
+      suggestedActions: parsed.suggestedActions && parsed.suggestedActions.length > 0 ? parsed.suggestedActions : defaultActions,
+      referencedEntities,
+      confidenceScore: parsed.confidenceScore || 94,
+      generatedBy: 'Gemini 3.7 Flash AI',
+      disclaimer,
     };
   } catch (err) {
-    console.error('Gemini generateCopilotResponse error:', err);
+    console.error('Gemini generateCopilotResponse error, providing fallback:', err);
     return {
-      reply: `Based on active investigation ${investigation.name}, key nodes include Dmitri Volkov, Master Vault (bc1qa5kx), and Aegis Horizon Global FZE.`,
+      reply: `### Intelligence Synthesis for ${invName}\n\nBased on graph topology and transaction telemetry, primary targets include **Dmitri Volkov** (Command Node, Risk 98/100) and **Master Treasury Vault** (Holding $31.2M USD). Cross-domain links route illicit flows across Ethereum, TRON, and UAE corporate settlement channels.`,
+      suggestedQuestions: defaultQuestions,
+      suggestedActions: defaultActions,
+      referencedEntities,
+      confidenceScore: 90,
+      generatedBy: 'NetTrace Intelligence Engine (Fallback)',
+      disclaimer,
     };
   }
 }
+

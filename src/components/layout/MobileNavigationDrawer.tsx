@@ -15,7 +15,9 @@ import {
   FileDown, 
   ChevronRight,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Crown,
+  Route
 } from 'lucide-react';
 import { TabView } from './NavigationTabs';
 import { InvestigationCase } from '../../types';
@@ -87,6 +89,15 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
       description: 'Interactive Multi-Modal Topology & Centrality',
     },
     {
+      id: 'kingpin' as TabView,
+      label: 'Potential Kingpin Detection',
+      subtitle: 'Strategic Influence Lead',
+      icon: Crown,
+      badge: 'Lead',
+      badgeColor: 'bg-rose-950 text-rose-300 border border-rose-800/80',
+      description: 'Topological Kingpin Identification & Network Control',
+    },
+    {
       id: 'prioritization' as TabView,
       label: 'Target Prioritization',
       subtitle: 'Kingpins & Facilitators',
@@ -121,6 +132,15 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
       badge: 'Live Scrubber',
       badgeColor: 'bg-slate-800 text-slate-300 border border-slate-700',
       description: 'Transaction tracking & chronological reconstruction',
+    },
+    {
+      id: 'hidden_relationships' as TabView,
+      label: 'Hidden Relationship Detection',
+      subtitle: 'Indirect Multi-Hop Obfuscation',
+      icon: Route,
+      badge: '6-Hop Scan',
+      badgeColor: 'bg-cyan-950 text-cyan-300 border border-cyan-700',
+      description: 'Find non-obvious conduits and indirect actor links',
     },
     {
       id: 'ai_briefing' as TabView,

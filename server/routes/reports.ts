@@ -3,6 +3,7 @@ import { getDb, queryAll, queryOne } from '../database';
 import { analyzeGraph } from '../services/graphEngine';
 import { calculateNetworkRisk } from '../services/riskEngine';
 import { rankInvestigationPriorities } from '../services/priorityEngine';
+import { buildInvestigationContext } from '../services/investigationContext';
 import { 
   generateReportSummary, 
   explainEntity, 
@@ -84,19 +85,28 @@ router.post('/briefing', async (req, res) => {
 router.post('/copilot', async (req, res) => {
   try {
     const db = await getDb();
-    const { caseId = 'NX-102', investigationId = 'NX-102', userQuery = '' } = req.body;
+    const { 
+      caseId = 'NX-102', 
+      investigationId = 'NX-102', 
+      userQuery = '', 
+      messageHistory = [],
+      selectedEntityId,
+      selectedPathId,
+      currentView 
+    } = req.body;
+    
     const id = caseId || investigationId;
-    const inv = queryOne(db, 'SELECT * FROM investigations WHERE id = ?', [id]) ||
-                queryOne(db, 'SELECT * FROM investigations LIMIT 1', []);
+    const context = buildInvestigationContext(db, id, {
+      selectedEntityId,
+      selectedPathId,
+      currentView,
+    });
 
-    if (!inv) {
-      return res.status(404).json({ error: `Investigation not found` });
+    if (!context) {
+      return res.status(404).json({ error: `Investigation context for ${id} could not be loaded` });
     }
 
-    const entities = queryAll(db, 'SELECT * FROM entities WHERE investigation_id = ?', [inv.id]);
-    const relationships = queryAll(db, 'SELECT * FROM relationships WHERE investigation_id = ?', [inv.id]);
-
-    const reply = await generateCopilotResponse(inv, entities, relationships, userQuery);
+    const reply = await generateCopilotResponse(context, userQuery, messageHistory);
     res.json(reply);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

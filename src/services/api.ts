@@ -88,11 +88,43 @@ export const api = {
   getInvestigationTimeline: (id: string) =>
     request<{ timeline: any[] }>(`/api/investigations/${id}/timeline`),
 
+  getTimelineAnalysis: (id: string = 'NX-102', window: string = '24h') =>
+    request<import('../types').TimelineAnalysisResult>(
+      `/api/investigations/${id}/timeline-analysis?window=${encodeURIComponent(window)}`
+    ),
+
+  getHiddenRelationships: (
+    id: string = 'NX-102',
+    source?: string,
+    target?: string,
+    maxHops: number = 6
+  ) => {
+    const params = new URLSearchParams();
+    if (source) params.set('source', source);
+    if (target) params.set('target', target);
+    if (maxHops) params.set('maxHops', maxHops.toString());
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    return request<import('../types').HiddenRelationshipAnalysisResult>(
+      `/api/investigations/${id}/hidden-relationships${queryStr}`
+    );
+  },
+
   getInvestigationPriorities: (id: string) =>
     request<{
       investigationId: string;
       priorities: any[];
     }>(`/api/investigations/${id}/priorities`),
+
+  getKingpinCandidates: (id: string = 'NX-102') =>
+    request<{
+      investigationId: string;
+      candidates: any[];
+      topCandidate?: any;
+      totalEntitiesAnalyzed: number;
+      disclaimer: string;
+      emptyState?: boolean;
+      emptyMessage?: string;
+    }>(`/api/investigations/${id}/kingpin`),
 
   // Entities
   getEntity: (id: string) => request<{ entity: any }>(`/api/entities/${id}`),
@@ -262,4 +294,22 @@ export const api = {
       priorities: any[];
       metrics: any;
     }>(`/api/reports/${investigationId}`),
+
+  getCaseBriefing: (investigationId: string = 'NX-102') =>
+    request<any>(`/api/reports/${investigationId}/briefing`),
+
+  queryCopilot: (data: {
+    investigationId?: string;
+    caseId?: string;
+    userQuery: string;
+    messageHistory?: Array<{ sender: string; text: string }>;
+    selectedEntityId?: string;
+    selectedPathId?: string;
+    currentView?: string;
+  }) =>
+    request<import('../types').CopilotResponse>('/api/ai/copilot', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
+
