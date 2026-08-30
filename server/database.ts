@@ -1,41 +1,59 @@
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import fs from 'fs';
 import path from 'path';
+import { seedDatabase } from './seed';
 
 let dbInstance: SqlJsDatabase | null = null;
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DATA_DIR, 'nettrace.db');
+const TMP_DB_PATH = path.join('/tmp', 'nettrace.db');
 
 export async function getDb(): Promise<SqlJsDatabase> {
   if (dbInstance) {
     return dbInstance;
   }
 
-  // Ensure data directory exists
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  // Ensure data directory exists if filesystem is writable
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (_) {
+    // In read-only environments, continue gracefully
   }
 
   const SQL = await initSqlJs();
 
-  if (fs.existsSync(DB_PATH)) {
-    try {
-      const fileBuffer = fs.readFileSync(DB_PATH);
-      dbInstance = new SQL.Database(fileBuffer);
-      // Test the database to ensure it's valid
-      dbInstance.exec('SELECT 1;');
-    } catch (e) {
-      console.warn('Failed to load existing nettrace.db (corrupted or malformed), initializing fresh database:', e);
+  // Try loading from primary path or fallback path
+  let loadedFromDisk = false;
+  const candidatePaths = [DB_PATH, TMP_DB_PATH];
+
+  for (const candidatePath of candidatePaths) {
+    if (fs.existsSync(candidatePath)) {
       try {
-        fs.unlinkSync(DB_PATH);
-      } catch (_) {}
-      dbInstance = new SQL.Database();
+        const fileBuffer = fs.readFileSync(candidatePath);
+        if (fileBuffer.length > 0) {
+          const testDb = new SQL.Database(fileBuffer);
+          testDb.exec('SELECT 1;');
+          dbInstance = testDb;
+          loadedFromDisk = true;
+          break;
+        }
+      } catch (e) {
+        console.warn(`[NetTrace] Failed to load ${candidatePath} (corrupted/incompatible), trying next:`, e);
+      }
     }
-  } else {
+  }
+
+  if (!loadedFromDisk || !dbInstance) {
     dbInstance = new SQL.Database();
   }
 
   initTables(dbInstance);
+  
+  // Guarantee demo investigation NX-102 is present
+  seedDatabase(dbInstance);
+
   saveDb(dbInstance);
 
   return dbInstance;
@@ -47,9 +65,27 @@ export function saveDb(db?: SqlJsDatabase): void {
   try {
     const data = target.export();
     const buffer = Buffer.from(data);
-    fs.writeFileSync(DB_PATH, buffer);
+
+    let saved = false;
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      fs.writeFileSync(DB_PATH, buffer);
+      saved = true;
+    } catch (_) {
+      // Primary DB_PATH is likely on a read-only filesystem (e.g. Vercel serverless / AWS Lambda)
+    }
+
+    if (!saved) {
+      try {
+        fs.writeFileSync(TMP_DB_PATH, buffer);
+      } catch (_) {
+        // Fallback: database remains safely in-memory for this instance
+      }
+    }
   } catch (e) {
-    console.error('Failed to save nettrace.db to disk:', e);
+    console.error('[NetTrace] Failed to export SQLite database:', e);
   }
 }
 

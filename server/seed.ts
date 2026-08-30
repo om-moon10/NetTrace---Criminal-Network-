@@ -2,13 +2,16 @@ import { Database } from 'sql.js';
 import { queryOne, execute, saveDb } from './database';
 
 export function seedDatabase(db: Database): void {
-  // Check if NX-102 has both entities and relationships properly seeded
+  // Check if NX-102 has investigation, entities, and relationships properly seeded
+  const inv = queryOne<{ id: string }>(db, 'SELECT id FROM investigations WHERE id = ?', ['NX-102']);
   const relCount = queryOne<{ count: number }>(db, 'SELECT count(*) as count FROM relationships WHERE investigation_id = ?', ['NX-102']);
-  if (relCount && Number(relCount.count) >= 50) {
+  const entCount = queryOne<{ count: number }>(db, 'SELECT count(*) as count FROM entities WHERE investigation_id = ?', ['NX-102']);
+
+  if (inv && inv.id === 'NX-102' && relCount && Number(relCount.count) >= 50 && entCount && Number(entCount.count) >= 30) {
     return;
   }
 
-  console.log('Seeding demo investigation NX-102 (Phantom Ledger) with full blockchain topology...');
+  console.log('[NetTrace] Initializing demo investigation NX-102 (Phantom Ledger) with full blockchain topology...');
 
   // Clean old NX-102 data if any exists
   execute(db, 'DELETE FROM relationships WHERE investigation_id = ?', ['NX-102']);
