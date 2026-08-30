@@ -1,97 +1,70 @@
-import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
+import { createClient, Client, InValue, ResultSet } from '@libsql/client';
 import fs from 'fs';
 import path from 'path';
 import { seedDatabase } from './seed';
 
-let dbInstance: SqlJsDatabase | null = null;
+let clientInstance: Client | null = null;
+let initPromise: Promise<Client> | null = null;
+
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DATA_DIR, 'nettrace.db');
-const TMP_DB_PATH = path.join('/tmp', 'nettrace.db');
 
-export async function getDb(): Promise<SqlJsDatabase> {
-  if (dbInstance) {
-    return dbInstance;
+/**
+ * Returns the singleton libSQL / Turso database client.
+ * In production (Vercel), connects to Turso via TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.
+ * In local development without Turso credentials, automatically falls back to local SQLite (file:data/nettrace.db).
+ */
+export async function getDb(): Promise<Client> {
+  if (clientInstance) {
+    return clientInstance;
   }
 
-  // Ensure data directory exists if filesystem is writable
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-  } catch (_) {
-    // In read-only environments, continue gracefully
+  if (initPromise) {
+    return initPromise;
   }
 
-  const SQL = await initSqlJs();
+  initPromise = (async () => {
+    const tursoUrl = process.env.TURSO_DATABASE_URL;
+    const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
-  // Try loading from primary path or fallback path
-  let loadedFromDisk = false;
-  const candidatePaths = [DB_PATH, TMP_DB_PATH];
-
-  for (const candidatePath of candidatePaths) {
-    if (fs.existsSync(candidatePath)) {
+    if (tursoUrl) {
+      console.log(`[NetTrace Database] Connecting to Turso Cloud database (${tursoUrl.split('?')[0]})...`);
+      clientInstance = createClient({
+        url: tursoUrl,
+        authToken: tursoAuthToken || undefined,
+      });
+    } else {
+      // Local fallback using file: SQLite
       try {
-        const fileBuffer = fs.readFileSync(candidatePath);
-        if (fileBuffer.length > 0) {
-          const testDb = new SQL.Database(fileBuffer);
-          testDb.exec('SELECT 1;');
-          dbInstance = testDb;
-          loadedFromDisk = true;
-          break;
+        if (!fs.existsSync(DATA_DIR)) {
+          fs.mkdirSync(DATA_DIR, { recursive: true });
         }
-      } catch (e) {
-        console.warn(`[NetTrace] Failed to load ${candidatePath} (corrupted/incompatible), trying next:`, e);
-      }
+      } catch (_) {}
+
+      console.log(`[NetTrace Database] TURSO_DATABASE_URL not set; using local libSQL file storage (file:${DB_PATH})`);
+      clientInstance = createClient({
+        url: `file:${DB_PATH}`,
+      });
     }
-  }
 
-  if (!loadedFromDisk || !dbInstance) {
-    dbInstance = new SQL.Database();
-  }
+    // Ensure database tables exist
+    await initTables(clientInstance);
 
-  initTables(dbInstance);
-  
-  // Guarantee demo investigation NX-102 is present
-  seedDatabase(dbInstance);
+    // Guarantee authoritative demo investigation NX-102 is present
+    await seedDatabase(clientInstance);
 
-  saveDb(dbInstance);
+    return clientInstance;
+  })();
 
-  return dbInstance;
+  return initPromise;
 }
 
-export function saveDb(db?: SqlJsDatabase): void {
-  const target = db || dbInstance;
-  if (!target) return;
-  try {
-    const data = target.export();
-    const buffer = Buffer.from(data);
-
-    let saved = false;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(DB_PATH, buffer);
-      saved = true;
-    } catch (_) {
-      // Primary DB_PATH is likely on a read-only filesystem (e.g. Vercel serverless / AWS Lambda)
-    }
-
-    if (!saved) {
-      try {
-        fs.writeFileSync(TMP_DB_PATH, buffer);
-      } catch (_) {
-        // Fallback: database remains safely in-memory for this instance
-      }
-    }
-  } catch (e) {
-    console.error('[NetTrace] Failed to export SQLite database:', e);
-  }
-}
-
-function initTables(db: SqlJsDatabase): void {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS investigations (
+/**
+ * Creates required tables if they don't already exist.
+ */
+async function initTables(db: Client): Promise<void> {
+  const tableStatements = [
+    `CREATE TABLE IF NOT EXISTS investigations (
       id TEXT PRIMARY KEY,
       case_number TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -103,9 +76,8 @@ function initTables(db: SqlJsDatabase): void {
       total_monitored_funds_usd REAL DEFAULT 0,
       created_at TEXT,
       updated_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS entities (
+    );`,
+    `CREATE TABLE IF NOT EXISTS entities (
       id TEXT PRIMARY KEY,
       investigation_id TEXT NOT NULL,
       label TEXT NOT NULL,
@@ -119,9 +91,8 @@ function initTables(db: SqlJsDatabase): void {
       metadata TEXT,
       created_at TEXT,
       FOREIGN KEY (investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS relationships (
+    );`,
+    `CREATE TABLE IF NOT EXISTS relationships (
       id TEXT PRIMARY KEY,
       investigation_id TEXT NOT NULL,
       source TEXT NOT NULL,
@@ -137,9 +108,8 @@ function initTables(db: SqlJsDatabase): void {
       FOREIGN KEY (investigation_id) REFERENCES investigations(id) ON DELETE CASCADE,
       FOREIGN KEY (source) REFERENCES entities(id) ON DELETE CASCADE,
       FOREIGN KEY (target) REFERENCES entities(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS evidence (
+    );`,
+    `CREATE TABLE IF NOT EXISTS evidence (
       id TEXT PRIMARY KEY,
       investigation_id TEXT NOT NULL,
       entity_id TEXT,
@@ -151,9 +121,8 @@ function initTables(db: SqlJsDatabase): void {
       confidence_weight INTEGER DEFAULT 85,
       timestamp TEXT,
       FOREIGN KEY (investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS timeline_events (
+    );`,
+    `CREATE TABLE IF NOT EXISTS timeline_events (
       id TEXT PRIMARY KEY,
       investigation_id TEXT NOT NULL,
       timestamp TEXT NOT NULL,
@@ -164,40 +133,45 @@ function initTables(db: SqlJsDatabase): void {
       severity TEXT DEFAULT 'medium',
       amount_usd REAL,
       FOREIGN KEY (investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
-    );
-  `);
+    );`,
+  ];
 
-  try {
-    db.run(`ALTER TABLE relationships ADD COLUMN created_at TEXT;`);
-  } catch (e) {
-    // Column may already exist
-  }
-
-  try {
-    db.run(`ALTER TABLE evidence ADD COLUMN title TEXT;`);
-  } catch (e) {
-    // Column may already exist
+  for (const stmt of tableStatements) {
+    try {
+      await db.execute(stmt);
+    } catch (e: any) {
+      console.warn(`[NetTrace Database] Schema init warning:`, e.message);
+    }
   }
 }
 
-// Database helper functions for convenience
-export function queryAll<T = any>(db: SqlJsDatabase, sql: string, params: any[] = []): T[] {
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const results: T[] = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject() as unknown as T);
-  }
-  stmt.free();
-  return results;
+/**
+ * Executes a query returning all rows as plain JavaScript objects.
+ */
+export async function queryAll<T = any>(db: Client, sql: string, params: InValue[] = []): Promise<T[]> {
+  const rs = await db.execute({ sql, args: params });
+  return rs.rows.map((row) => ({ ...row })) as unknown as T[];
 }
 
-export function queryOne<T = any>(db: SqlJsDatabase, sql: string, params: any[] = []): T | null {
-  const results = queryAll<T>(db, sql, params);
-  return results.length > 0 ? results[0] : null;
+/**
+ * Executes a query returning the first row as a plain JavaScript object or null.
+ */
+export async function queryOne<T = any>(db: Client, sql: string, params: InValue[] = []): Promise<T | null> {
+  const rs = await db.execute({ sql, args: params });
+  if (rs.rows.length === 0) return null;
+  return { ...rs.rows[0] } as unknown as T;
 }
 
-export function execute(db: SqlJsDatabase, sql: string, params: any[] = []): void {
-  db.run(sql, params);
-  saveDb(db);
+/**
+ * Executes a SQL statement (INSERT, UPDATE, DELETE).
+ */
+export async function execute(db: Client, sql: string, params: InValue[] = []): Promise<ResultSet> {
+  return await db.execute({ sql, args: params });
+}
+
+/**
+ * Safe no-op for libSQL / Turso storage compatibility.
+ */
+export function saveDb(_db?: Client): void {
+  // No-op: libSQL commits writes immediately to the remote/local database
 }
